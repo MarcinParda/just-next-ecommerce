@@ -1,4 +1,4 @@
-import { Roboto } from '@next/font/google';
+import { Roboto } from 'next/font/google';
 import { Providers } from '@/components/Providers/Providers';
 
 interface RootLayoutProps {
