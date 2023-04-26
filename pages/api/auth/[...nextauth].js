@@ -1,30 +1,9 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { compare, hash } from 'bcrypt';
-import { GraphQLClient, gql } from 'graphql-request';
-
-const client = new GraphQLClient(process.env.HYGRAPH_ENDPOINT, {
-  headers: {
-    Authorization: `Bearer ${process.env.HYGRAPH_TOKEN}`,
-  },
-});
-
-const GetUserByEmail = gql`
-  query GetUserByEmail($email: String!) {
-    user: nextUser(where: { email: $email }, stage: DRAFT) {
-      id
-      password
-    }
-  }
-`;
-
-const CreateNextUserByEmail = gql`
-  mutation CreateNextUserByEmail($email: String!, $password: String!) {
-    newUser: createNextUser(data: { email: $email, password: $password }) {
-      id
-    }
-  }
-`;
+import { CreateNextUserByEmail } from '@/graphql/mutations';
+import { GetUserByEmail } from '@/graphql/queries';
+import { hygraphClient } from '@/utils/consts/hypgraphClient';
 
 export default NextAuth({
   providers: [
@@ -43,15 +22,18 @@ export default NextAuth({
         },
       },
       authorize: async ({ email, password }) => {
-        const { user } = await client.request(GetUserByEmail, {
+        const { user } = await hygraphClient.request(GetUserByEmail, {
           email,
         });
 
         if (!user) {
-          const { newUser } = await client.request(CreateNextUserByEmail, {
-            email,
-            password: await hash(password, 12),
-          });
+          const { newUser } = await hygraphClient.request(
+            CreateNextUserByEmail,
+            {
+              email,
+              password: await hash(password, 12),
+            }
+          );
 
           return {
             id: newUser.id,
@@ -74,4 +56,10 @@ export default NextAuth({
       },
     }),
   ],
+  secret: process.env.NEXTAUTH_SECRET,
+  pages: {
+    signIn: '/auth/signin',
+    signOut: '/auth/signout',
+    error: '/auth/error', // Error code passed in query string as ?error=
+  },
 });
